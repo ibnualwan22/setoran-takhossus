@@ -1,0 +1,145 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 1. MODEL UNTUK AUTENTIKASI DAN PERAN PENGGUNA
+model User {
+  id        Int      @id @default(autoincrement())
+  username  String   @unique
+  password  String // Nanti kita simpan password yang sudah di-hash
+  role      Role     @default(PENCATAT) // Default role adalah Pencatat
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relasi: User bisa jadi adalah seorang Penyimak
+  penyimak Penyimak?
+
+  // Relasi: User mencatat banyak setoran dan izin
+  setoranDicatat Setoran[] @relation("DicatatOleh")
+  izinDicatat    Izin[]    @relation("DicatatOleh")
+}
+
+// 2. MODEL UNTUK PENYIMAK (USTADZ)
+model Penyimak {
+  id   Int    @id @default(autoincrement())
+  nama String
+
+  // Relasi one-to-one dengan User
+  userId Int  @unique
+  user   User @relation(fields: [userId], references: [id])
+
+  // Relasi one-to-many: Satu penyimak mengasuh banyak santri
+  santri Santri[]
+}
+
+// 3. MODEL UNTUK SANTRI (DATA DIAMBIL DARI API)
+model Santri {
+  id           Int      @id @default(autoincrement())
+  nis       String   @unique
+  nama         String
+  regency      String? // Tanda tanya (?) berarti opsional/boleh kosong
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  is_active Boolean  @default(true)
+
+  // Relasi many-to-one: Santri ini diasuh oleh siapa?
+  penyimakId Int?
+  penyimak   Penyimak? @relation(fields: [penyimakId], references: [id])
+
+  // Relasi one-to-many: Satu santri punya banyak riwayat setoran & izin
+  setoran Setoran[]
+  izin    Izin[]
+}
+
+// 4. MODEL UNTUK KITAB-KITAB (KHUSUS MUKHOTIM)
+model Kitab {
+  id        Int      @id @default(autoincrement())
+  namaKitab String   @unique
+  kategori  KategoriKitab @default(MUKHOTIM)
+  createdAt DateTime @default(now())
+
+  // Relasi: Kitab ini ada di banyak catatan setoran
+  setoran Setoran[]
+}
+
+// 5. MODEL UTAMA: MENCATAT SETORAN HARIAN
+model Setoran {
+  id         Int            @id @default(autoincrement())
+  kategori   KategoriSetoran
+  halamanDari String?
+  halamanSampai String?
+  barisKe    String?
+  keterangan String?
+  createdAt  DateTime       @default(now()) // Ini otomatis jadi tanggal setoran
+
+  // Relasi: Setoran ini milik siapa?
+  santriId Int
+  santri   Santri @relation(fields: [santriId], references: [id], onDelete: Cascade)
+
+  // Relasi: Setoran ini dicatat oleh siapa?
+  pencatatId Int
+  pencatat   User  @relation("DicatatOleh", fields: [pencatatId], references: [id])
+
+  // Relasi: Jika setoran Mukhotim, kitabnya apa?
+  kitabId Int?
+  kitab   Kitab? @relation(fields: [kitabId], references: [id])
+}
+
+// 6. MODEL UNTUK MENCATAT IZIN
+model Izin {
+  id         Int      @id @default(autoincrement())
+  jenisIzin  JenisIzin
+  keterangan String
+  createdAt  DateTime @default(now()) // Ini otomatis jadi tanggal izin
+
+  // Relasi: Izin ini milik siapa?
+  santriId Int
+  santri   Santri @relation(fields: [santriId], references: [id], onDelete: Cascade)
+
+  // Relasi: Izin ini dicatat oleh siapa?
+  pencatatId Int
+  pencatat   User @relation("DicatatOleh", fields: [pencatatId], references: [id])
+}
+
+// 7. MODEL UNTUK MENANDAI HARI LIBUR MANUAL
+model HariLibur {
+  id         Int      @id @default(autoincrement())
+  tanggal    DateTime @unique @db.Date // Hanya menyimpan tanggal, tanpa jam
+  keterangan String?
+  createdAt  DateTime @default(now())
+}
+
+// === ENUMERATIONS (Pilihan Tetap) ===
+// Enum untuk Role Pengguna
+enum Role {
+  ADMIN
+  STAF
+  PENCATAT
+}
+
+// Enum untuk Kategori Kitab
+enum KategoriKitab {
+  MUKHOTIM
+}
+
+// Enum untuk Kategori Setoran
+enum KategoriSetoran {
+  WAJIB
+  MUKHOTIM
+}
+
+// Enum untuk Jenis Izin
+enum JenisIzin {
+  SAKIT
+  PULANG
+  LAINNYA
+}
