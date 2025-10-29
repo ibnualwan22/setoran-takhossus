@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import toast from 'react-hot-toast';
 
 export default function InputSetoranClient({ santriList, kitabList, currentUser }) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -92,9 +93,9 @@ export default function InputSetoranClient({ santriList, kitabList, currentUser 
     });
 
     if (res.ok) {
-      alert(`Setoran ${kategori} untuk ${selectedSantri.nama} berhasil dicatat!`);
-      closeModals();
-    } else {
+      toast.success(`Setoran ${kategori} untuk ${selectedSantri.nama} berhasil dicatat!`); // GANTI INI
+  closeModals();
+}else {
       const data = await res.json();
       setFormError(data.error || 'Gagal mencatat setoran.');
     }
@@ -120,9 +121,9 @@ export default function InputSetoranClient({ santriList, kitabList, currentUser 
     });
 
     if (res.ok) {
-      alert(`Izin ${jenisIzin} untuk ${selectedSantri.nama} berhasil dicatat!`);
-      closeModals();
-    } else {
+      toast.success(`Izin ${jenisIzin} untuk ${selectedSantri.nama} berhasil dicatat!`); // GANTI INI
+  closeModals();
+} else {
       const data = await res.json();
       setFormError(data.error || 'Gagal mencatat izin.');
     }
