@@ -51,10 +51,10 @@ export default function Sidebar() {
           </li>
           <li>
             <Link
-              href="/dashboard/manage-penyimak"
+              href="/dashboard/rekapitulasi-absen"
               className="block px-4 py-2 rounded-md hover:bg-gray-700"
             >
-              Manajemen Penyimak
+              Rekapitulasi Absen
             </Link>
           </li>
           <li>
@@ -76,6 +76,14 @@ export default function Sidebar() {
               className="block px-4 py-2 rounded-md hover:bg-gray-700"
             >
               Rekap Harian
+            </Link>
+          </li>
+          <li>
+            <Link
+              href="/dashboard/laporan-penyimak"
+              className="block px-4 py-2 rounded-md hover:bg-gray-700"
+            >
+              Laporan Santri Per-Penyimak
             </Link>
           </li>
           <li>
