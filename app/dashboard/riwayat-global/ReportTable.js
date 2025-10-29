@@ -1,6 +1,6 @@
 'use client';
 
-// Komponen helper untuk render sel status
+// Komponen helper untuk render sel status (DIPERBARUI)
 function renderStatusCell(status) {
   switch (status) {
     case 'HADIR':
@@ -10,7 +10,8 @@ function renderStatusCell(status) {
     case 'ALPA':
       return <span title="Alpa" className="text-red-500">❌</span>;
     case 'LIBUR':
-      return <span title="Libur" className="text-gray-400">-</span>;
+      // === PERUBAHAN TAMPILAN ===
+      return <span title="Libur" className="font-bold text-gray-400">L</span>; 
     default:
       return <span className="text-gray-300">?</span>;
   }
@@ -18,14 +19,14 @@ function renderStatusCell(status) {
 
 // Komponen ini hanya bertugas me-render tabel dari data yang sudah difilter
 export default function ReportTable({ filteredData, daysArray }) {
-  return (
+  // ... (sisa kode ReportTable.js tidak berubah) ...
+    return (
     <div className="overflow-x-auto border rounded-lg">
       <table className="min-w-full divide-y divide-gray-200">
         <thead className="bg-gray-50 sticky top-0">
           <tr>
             <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">No</th>
             <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-40">Nama Santri</th>
-            {/* Render Kolom Tanggal (1, 2, 3, ...) */}
             {daysArray.map(day => (
               <th key={day} className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase w-10">
                 {day}
@@ -41,7 +42,6 @@ export default function ReportTable({ filteredData, daysArray }) {
             <tr key={santri.id} className="hover:bg-gray-50">
               <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{index + 1}</td>
               <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{santri.nama}</td>
-              {/* Render Status Harian (✅, 🇮, ❌, -) */}
               {daysArray.map(day => (
                 <td key={day} className="px-2 py-2 whitespace-nowrap text-sm text-center">
                   {renderStatusCell(santri.dates[day])}

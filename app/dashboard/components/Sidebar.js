@@ -65,6 +65,14 @@ export default function Sidebar() {
               Manajemen Kitab
             </Link>
           </li>
+          <li>
+            <Link
+              href="/dashboard/manage-holidays"
+              className="block px-4 py-2 rounded-md hover:bg-gray-700"
+            >
+              Manajemen Hari Libur
+            </Link>
+          </li>
           <li className="pt-4 mt-4 border-t border-gray-700">
             <span className="px-4 text-xs font-semibold text-gray-400 uppercase">
               Laporan

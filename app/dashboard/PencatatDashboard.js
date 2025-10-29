@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 
-export default function PencatatDashboard({ alpaList, kitabList, formattedDate }) {
+// Terima props baru: santriToDisplay, isHoliday, keteranganLibur
+export default function PencatatDashboard({ santriToDisplay, isHoliday, keteranganLibur, kitabList, formattedDate }) {
   // === State untuk Modal ===
   const [isSetoranModalOpen, setIsSetoranModalOpen] = useState(false);
   const [isIzinModalOpen, setIsIzinModalOpen] = useState(false); // <-- TAMBAHKAN INI
@@ -18,117 +19,63 @@ export default function PencatatDashboard({ alpaList, kitabList, formattedDate }
   const [barisKe, setBarisKe] = useState('');
   const [keteranganSetoran, setKeteranganSetoran] = useState('');
   
-  // === State untuk Form Izin === (BARU)
+  // === State untuk Form Izin ===
   const [jenisIzin, setJenisIzin] = useState('SAKIT');
   const [keteranganIzin, setKeteranganIzin] = useState('');
 
-  // === State untuk daftar Alpa (agar bisa diupdate) ===
-  const [currentAlpaList, setCurrentAlpaList] = useState(alpaList);
+  // === State daftar santri (Sekarang pakai props) ===
+  const [currentSantriList, setCurrentSantriList] = useState(santriToDisplay);
 
   // === Fungsi Buka/Tutup Modal ===
-  const resetFormStates = () => {
-    setFormError('');
-    setIsLoading(false);
-    // Form Setoran
-    setKategori('WAJIB');
-    setKitabId('');
-    setHalamanDari('');
-    setHalamanSampai('');
-    setBarisKe('');
-    setKeteranganSetoran('');
-    // Form Izin (BARU)
-    setJenisIzin('SAKIT');
-    setKeteranganIzin('');
+  const resetFormStates = () => { 
+    setFormError(''); setIsLoading(false); setKategori('WAJIB'); setKitabId('');
+    setHalamanDari(''); setHalamanSampai(''); setBarisKe(''); setKeteranganSetoran('');
+    setJenisIzin('SAKIT'); setKeteranganIzin('');
+  };
+  const openSetoranModal = (santri) => { 
+    resetFormStates(); setSelectedSantri(santri); setIsSetoranModalOpen(true);
+  };
+  const openIzinModal = (santri) => { 
+    resetFormStates(); setSelectedSantri(santri); setIsIzinModalOpen(true);
+  };
+  const closeModals = () => { 
+    setIsSetoranModalOpen(false); setIsIzinModalOpen(false); setSelectedSantri(null);
   };
 
-  const openSetoranModal = (santri) => {
-    resetFormStates();
-    setSelectedSantri(santri);
-    setIsSetoranModalOpen(true);
-  };
-  
-  // Fungsi Buka Modal Izin (BARU)
-  const openIzinModal = (santri) => {
-    resetFormStates();
-    setSelectedSantri(santri);
-    setIsIzinModalOpen(true);
-  };
+  // Ubah submit agar menghapus dari 'currentSantriList' HANYA jika TIDAK libur
+  const handleSuccessSubmit = (santriId) => {
+    if (!isHoliday) { // Hanya hapus dari daftar jika BUKAN hari libur
+        setCurrentSantriList(currentSantriList.filter((s) => s.id !== santriId));
+    }
+    closeModals();
+  }
 
-  const closeModals = () => {
-    setIsSetoranModalOpen(false);
-    setIsIzinModalOpen(false); // <-- TAMBAHKAN INI
-    setSelectedSantri(null);
-  };
-
-  // === Fungsi Submit Form ===
   const handleSetoranSubmit = async (e) => {
-    e.preventDefault();
-    if (!selectedSantri) return;
-    setIsLoading(true);
-    setFormError('');
-
-    const body = {
-      santriId: selectedSantri.id,
-      kategori,
-      kitabId: kategori === 'MUKHOTIM' ? kitabId : null,
-      halamanDari,
-      halamanSampai,
-      barisKe,
-      keterangan: keteranganSetoran,
+    e.preventDefault(); if (!selectedSantri) return; setIsLoading(true); setFormError('');
+    const body = { 
+      santriId: selectedSantri.id, kategori, kitabId: kategori === 'MUKHOTIM' ? kitabId : null,
+      halamanDari, halamanSampai, barisKe, keterangan: keteranganSetoran,
     };
-
-    const res = await fetch('/api/setoran', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-
+    const res = await fetch('/api/setoran', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     if (res.ok) {
       alert(`Setoran ${kategori} untuk ${selectedSantri.nama} berhasil dicatat!`);
-      // Update UI: Hapus santri dari daftar 'To-Do'
-      setCurrentAlpaList(
-        currentAlpaList.filter((s) => s.id !== selectedSantri.id)
-      );
-      closeModals();
-    } else {
-      const data = await res.json();
-      setFormError(data.error || 'Gagal mencatat setoran.');
-    }
+      handleSuccessSubmit(selectedSantri.id); // Panggil fungsi baru
+    } else { const data = await res.json(); setFormError(data.error || 'Gagal mencatat setoran.'); }
     setIsLoading(false);
   };
-  
-  // Fungsi Submit Form Izin (BARU)
   const handleIzinSubmit = async (e) => {
-    e.preventDefault();
-    if (!selectedSantri) return;
-    setIsLoading(true);
-    setFormError('');
-
-    const body = {
-      santriId: selectedSantri.id,
-      jenisIzin,
-      keterangan: keteranganIzin,
+    e.preventDefault(); if (!selectedSantri) return; setIsLoading(true); setFormError('');
+    const body = { 
+      santriId: selectedSantri.id, jenisIzin, keterangan: keteranganIzin,
     };
-
-    const res = await fetch('/api/izin', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-
+    const res = await fetch('/api/izin', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     if (res.ok) {
       alert(`Izin ${jenisIzin} untuk ${selectedSantri.nama} berhasil dicatat!`);
-      // Update UI: Hapus santri dari daftar 'To-Do'
-      setCurrentAlpaList(
-        currentAlpaList.filter((s) => s.id !== selectedSantri.id)
-      );
-      closeModals();
-    } else {
-      const data = await res.json();
-      setFormError(data.error || 'Gagal mencatat izin.');
-    }
+      handleSuccessSubmit(selectedSantri.id); // Panggil fungsi baru
+    } else { const data = await res.json(); setFormError(data.error || 'Gagal mencatat izin.'); }
     setIsLoading(false);
   };
+
 
   return (
     <div className="bg-white p-6 rounded-lg shadow-md">
@@ -137,61 +84,80 @@ export default function PencatatDashboard({ alpaList, kitabList, formattedDate }
       </h1>
       <p className="text-lg text-gray-700 mb-6">{formattedDate}</p>
 
-      {/* === Peringatan (Fitur Utama) === */}
-      <div className={`p-4 rounded-lg mb-6 ${
-        currentAlpaList.length > 0 
-          ? 'bg-red-100 border border-red-300' 
-          : 'bg-green-100 border border-green-300'
-      }`}>
-        <h2 className={`text-xl font-bold ${
-          currentAlpaList.length > 0 ? 'text-red-800' : 'text-green-800'
+      {/* === Tampilkan Pesan Libur jika ya === */}
+      {isHoliday ? (
+        <div className="p-4 rounded-lg mb-6 bg-blue-100 border border-blue-300">
+           <h2 className="text-xl font-bold text-blue-800">
+             Hari Ini Libur: {keteranganLibur}
+           </h2>
+           <p className="text-blue-700 mt-1">Anda masih bisa mencatat setoran jika ada santri yang ingin setoran.</p>
+        </div>
+      ) : (
+        // === Peringatan (Hanya jika TIDAK libur) ===
+        <div className={`p-4 rounded-lg mb-6 ${
+          currentSantriList.length > 0 
+            ? 'bg-red-100 border border-red-300' 
+            : 'bg-green-100 border border-green-300'
         }`}>
-          {currentAlpaList.length > 0
-            ? `PERINGATAN: Ada ${currentAlpaList.length} santri asuhan Anda yang belum setoran wajib.`
-            : 'KEREN! Semua santri asuhan Anda sudah setoran wajib hari ini.'
-          }
-        </h2>
-      </div>
+          <h2 className={`text-xl font-bold ${
+            currentSantriList.length > 0 ? 'text-red-800' : 'text-green-800'
+          }`}>
+            {currentSantriList.length > 0
+              ? `PERINGATAN: Ada ${currentSantriList.length} santri asuhan Anda yang belum setoran wajib.`
+              : 'KEREN! Semua santri asuhan Anda sudah setoran wajib hari ini.'
+            }
+          </h2>
+        </div>
+      )}
 
-      {/* === Daftar Santri (To-Do List) === */}
-      {currentAlpaList.length > 0 && (
-        <div className="overflow-x-auto">
-          <table className="min-w-full bg-white border">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Nama Santri (Belum Setor)</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Aksi</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {currentAlpaList.map((santri) => (
-                <tr key={santri.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
-                    {santri.nama}
-                  </td>
-                  <td className="px-4 py-2 whitespace-nowrap text-sm font-medium space-x-2"> {/* <-- Tambah space-x-2 */}
-                    <button
-                      onClick={() => openSetoranModal(santri)}
-                      className="px-3 py-1 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
-                    >
-                      Catat Setoran
-                    </button>
-                    {/* === TOMBOL IZIN (BARU) === */}
+      {/* === Daftar Santri === */}
+      <div className="overflow-x-auto">
+        <table className="min-w-full bg-white border">
+          <thead className="bg-gray-50">
+            <tr>
+              {/* Judul tabel dinamis */}
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                {isHoliday ? 'Nama Santri Asuhan' : 'Nama Santri (Belum Setor)'}
+              </th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Aksi</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200">
+            {currentSantriList.map((santri) => (
+              <tr key={santri.id} className="hover:bg-gray-50">
+                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                  {santri.nama}
+                </td>
+                <td className="px-4 py-2 whitespace-nowrap text-sm font-medium space-x-2">
+                  <button
+                    onClick={() => openSetoranModal(santri)}
+                    className="px-3 py-1 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
+                  >
+                    Catat Setoran
+                  </button>
+                  {/* Tampilkan tombol Izin HANYA jika tidak libur */}
+                  {!isHoliday && (
                     <button
                       onClick={() => openIzinModal(santri)}
                       className="px-3 py-1 text-sm font-medium text-white bg-yellow-600 rounded-md hover:bg-yellow-700"
                     >
                       Catat Izin
                     </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+                  )}
+                </td>
+              </tr>
+            ))}
+            {currentSantriList.length === 0 && !isHoliday && (
+                 <tr><td colSpan="2" className="text-center py-4 text-gray-500">Semua santri sudah setor/izin.</td></tr>
+            )}
+             {currentSantriList.length === 0 && isHoliday && (
+                 <tr><td colSpan="2" className="text-center py-4 text-gray-500">Anda tidak memiliki santri asuhan.</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
 
-      {/* === MODAL FORM SETORAN === (Tidak berubah) */}
+      {/* === MODAL FORM SETORAN === */}
       {isSetoranModalOpen && selectedSantri && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-lg p-6">
@@ -277,7 +243,7 @@ export default function PencatatDashboard({ alpaList, kitabList, formattedDate }
         </div>
       )}
 
-      {/* === MODAL FORM IZIN (BARU) === */}
+      {/* === MODAL FORM IZIN === */}
       {isIzinModalOpen && selectedSantri && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-lg p-6">
