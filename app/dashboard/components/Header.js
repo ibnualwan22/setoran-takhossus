@@ -32,7 +32,7 @@ export default function Header({ toggleMobileMenu, isMobileMenuOpen }) {
 
        {/* Judul Aplikasi (Muncul di tengah mobile) */}
         <div className="md:hidden text-lg font-bold text-gray-800">
-            Setoran TPA
+            Setoran TAakhossus
         </div>
 
       {/* Tombol Logout (Tetap di kanan) */}

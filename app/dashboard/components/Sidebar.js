@@ -42,7 +42,7 @@ export default function Sidebar({ isMobile = false, toggleMobileMenu }) {
     >
       <div className="mb-8 flex justify-between items-center">
         <h2 className="text-2xl font-bold text-center text-white">
-            Setoran TPA
+            Setoran Takhossus
         </h2>
         {/* Tombol Close (Hanya di mobile) */}
         {isMobile && (

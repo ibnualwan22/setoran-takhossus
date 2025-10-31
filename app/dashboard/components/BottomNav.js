@@ -15,6 +15,7 @@ export default function BottomNav() {
 
   const navItems = [
     { href: '/dashboard/input-setoran', icon: FiEdit, label: 'Input' },
+    
     { href: '/dashboard', icon: FiHome, label: 'Home' }, // Tengah
     { href: '/dashboard/rekap-harian', icon: FiClipboard, label: 'Rekap' },
     { href: '/dashboard/laporan-penyimak', icon: FiUsers, label: 'Asuhan' },
@@ -22,25 +23,50 @@ export default function BottomNav() {
 
   return (
     // Muncul di bawah, HANYA di mobile (md:hidden)
-    <nav className="fixed bottom-0 left-0 right-0 bg-gray-800 text-white p-2 border-t border-gray-700 md:hidden z-50">
-      <ul className="flex justify-around items-center">
-        {navItems.map((item) => {
-          const isActive = pathname === item.href;
-          return (
-            <li key={item.href} className="flex-1 text-center">
-              <Link
-                href={item.href}
-                className={`flex flex-col items-center p-1 rounded-md text-xs ${
-                  isActive ? 'text-indigo-400' : 'text-gray-400 hover:text-white'
-                }`}
+    <nav className="fixed bottom-0 left-0 right-0 md:hidden z-50">
+      {/* Background putih dengan border atas */}
+      <div className="bg-white border-t border-gray-200 shadow-lg">
+        <div className="relative">
+          {/* Lengkungan di tengah untuk tombol Home */}
+          <div className="absolute left-1/2 transform -translate-x-1/2 -top-8">
+            <div className="w-16 h-16 bg-white rounded-full shadow-lg flex items-center justify-center">
+              <Link 
+                href="/dashboard"
+                className="w-14 h-14 bg-gradient-to-br from-blue-600 to-blue-700 rounded-full flex items-center justify-center shadow-md hover:from-blue-700 hover:to-blue-800 transition-all"
               >
-                <item.icon className={`w-5 h-5 mb-1 ${isActive ? 'text-indigo-400' : ''}`} />
-                {item.label}
+                <FiHome className="w-7 h-7 text-white" />
               </Link>
-            </li>
-          );
-        })}
-      </ul>
+            </div>
+          </div>
+
+          {/* Navigation Items */}
+          <ul className="flex justify-around items-center px-4 py-3">
+            {navItems.map((item, index) => {
+              const isActive = pathname === item.href;
+              const isHome = item.href === '/dashboard';
+              
+              // Skip rendering Home di bawah karena sudah di tengah atas
+              if (isHome) {
+                return <li key={item.href} className="flex-1"></li>;
+              }
+              
+              return (
+                <li key={item.href} className="flex-1 text-center">
+                  <Link
+                    href={item.href}
+                    className={`flex flex-col items-center transition-colors ${
+                      isActive ? 'text-indigo-600' : 'text-gray-400 hover:text-gray-600'
+                    }`}
+                  >
+                    <item.icon className={`w-6 h-6 mb-1 ${isActive ? 'text-indigo-600' : ''}`} />
+                    <span className="text-xs font-medium">{item.label}</span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      </div>
     </nav>
   );
 }
