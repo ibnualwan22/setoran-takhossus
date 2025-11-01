@@ -8,7 +8,7 @@ const prisma = new PrismaClient();
 
 // === (Fungsi Helper Zona Waktu - Tidak Berubah) ===
 function getWIBToday() {
-  return new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+  return new Date(); // Jauh lebih sederhana dan sekarang sudah akurat
 }
 function getWIBTodayRange(now) {
   const startOfDayWIB = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
