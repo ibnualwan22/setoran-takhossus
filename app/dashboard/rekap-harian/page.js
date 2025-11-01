@@ -1,6 +1,8 @@
 import { PrismaClient } from '@prisma/client';
 import AlpaReportButton from './AlpaReportButton'; // Komponen baru
 
+export const revalidate = 0;
+
 const prisma = new PrismaClient();
 
 // === FUNGSI HELPER ZONA WAKTU (WIB) ===

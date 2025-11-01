@@ -4,6 +4,7 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import AdminDashboard from './AdminDashboard';
 import PencatatDashboard from './PencatatDashboard';
 
+export const revalidate = 0;
 const prisma = new PrismaClient();
 
 // === (Fungsi Helper Zona Waktu - Tidak Berubah) ===
