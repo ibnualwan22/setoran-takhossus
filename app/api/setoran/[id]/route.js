@@ -18,7 +18,7 @@ export async function PUT(req, { params }) {
   try {
     const body = await req.json();
     // Ambil field yang boleh diubah
-    const { kitabId, halamanDari, halamansampai, barisKe, keterangan } = body;
+    const { kitabId, halamanDari, halamanSampai, barisKe, keterangan } = body;
 
     // Validasi sederhana (bisa diperketat)
     // Misalnya, pastikan kitabId hanya ada jika kategori Mukhotim
