@@ -24,7 +24,13 @@ function getMonthDetails(month, year) {
 // === FUNGSI INTI PENGAMBIL DATA (BACKEND) - DIPERBARUI ===
 async function getGlobalRecapData(month, year) {
   const { startDate, endDate, daysArray, daysInMonth, y, m } = getMonthDetails(month, year);
-
+  const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+  const todayDate = now.getDate(); // Cth: 3
+  const currentMonth = now.getMonth() + 1; // Cth: 11 (November)
+  const currentYear = now.getFullYear(); // Cth: 2025
+  
+  // Cek apakah kita sedang melihat bulan & tahun saat ini
+  const isCurrentMonthView = (parseInt(month) === currentMonth && parseInt(year) === currentYear);
   // 1. Ambil data (Tidak Berubah)
   const [allActiveSantri, setoranWajib, izin, hariLiburManual] = await Promise.all([
     prisma.santri.findMany({ where: { is_active: true }, orderBy: { nama: 'asc' } }),
@@ -56,32 +62,30 @@ async function getGlobalRecapData(month, year) {
     const santriIzin = izinMap.get(santri.id) || new Set();
 
     for (const day of daysArray) {
-      const currentDateUTC = new Date(Date.UTC(y, m - 1, day));
-      const dayOfWeek = currentDateUTC.getUTCDay();
-      const isHoliday = (dayOfWeek === 4 || dayOfWeek === 5 || liburSet.has(day));
+      // === LOGIKA BARU DI SINI ===
+      // Cek #1: Apakah ini tanggal di masa depan (hanya jika di bulan ini)
+      if (isCurrentMonthView && day > todayDate) {
+        santriRow.dates[day] = 'EMPTY'; // Status baru: Kosong
+      } else {
+        // Logika lama (pengecekan libur, hadir, izin, alpa)
+        const currentDateUTC = new Date(Date.UTC(y, m - 1, day));
+        const dayOfWeek = currentDateUTC.getUTCDay();
+        const isHoliday = (dayOfWeek === 4 || dayOfWeek === 5 || liburSet.has(day));
 
-      // === LOGIKA BARU ===
-      // Prioritas 1: Cek Setoran dulu
-      if (santriSetoran.has(day)) {
-        santriRow.dates[day] = 'HADIR';
-        santriRow.totalHadir++; // Tetap hitung Hadir meskipun hari libur
-      } 
-      // Prioritas 2: Jika tidak setoran, cek apakah hari libur
-      else if (isHoliday) {
-        santriRow.dates[day] = 'LIBUR';
-        // TIDAK menambah totalIzin atau totalAlpa
-      } 
-      // Prioritas 3: Jika tidak setoran & bukan hari libur, cek Izin
-      else if (santriIzin.has(day)) {
-        santriRow.dates[day] = 'IZIN';
-        santriRow.totalIzin++;
-      } 
-      // Prioritas 4: Jika tidak setoran, bukan libur, tidak izin -> ALPA
-      else {
-        santriRow.dates[day] = 'ALPA';
-        santriRow.totalAlpa++;
+        if (santriSetoran.has(day)) {
+          santriRow.dates[day] = 'HADIR';
+          santriRow.totalHadir++;
+        } else if (isHoliday) {
+          santriRow.dates[day] = 'LIBUR';
+        } else if (santriIzin.has(day)) {
+          santriRow.dates[day] = 'IZIN';
+          santriRow.totalIzin++;
+        } else {
+          santriRow.dates[day] = 'ALPA';
+          santriRow.totalAlpa++; // Alpa hanya dihitung jika BUKAN masa depan
+        }
       }
-      // ==================
+      // =========================
     }
     rekapData.push(santriRow);
   }
@@ -117,7 +121,3 @@ export default async function RiwayatGlobalPage({ searchParams }) {
     </div>
   );
 }
-
-// === KOMPONEN BANTUAN TAMPILAN - DIPERBARUI ===
-// (Kita pindahkan ke dalam ReportTable.js karena hanya dipakai di sana)
-// function renderStatusCell(status) { ... }

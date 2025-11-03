@@ -85,9 +85,9 @@ export default function ReportClientWrapper({ rekapData, daysArray, selectedMont
   return (
     <div>
       {/* === Filter Aksi (Baru) === */}
-      <div className="my-4 p-4 border rounded-lg bg-gray-50 flex justify-between items-center">
-        {/* Filter Status (Kiri) */}
-        <div className="flex items-center gap-2">
+    <div className="my-4 p-4 border rounded-lg bg-gray-50 flex flex-col md:flex-row justify-between items-center gap-4">
+          {/* Filter Status (Kiri) */}
+        <div className="flex w-full md:w-auto items-center gap-2">
           <label htmlFor="statusFilter" className="block text-sm font-medium text-gray-700">
             Tampilkan:
           </label>
@@ -96,7 +96,7 @@ export default function ReportClientWrapper({ rekapData, daysArray, selectedMont
             name="statusFilter"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2 text-gray-900 border border-gray-300 rounded-md"
+            className="w-full px-3 py-2 text-gray-900 border border-gray-300 rounded-md"
           >
             <option value="ALL">Semua Santri</option>
             <option value="HADIR">Yang Pernah Hadir</option>
@@ -108,7 +108,7 @@ export default function ReportClientWrapper({ rekapData, daysArray, selectedMont
         {/* Tombol Ekspor (Kanan) */}
         <button
           onClick={handleExport}
-          className="px-4 py-2 font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
+          className="w-full px-4 py-2 font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
         >
           Ekspor ke Excel
         </button>

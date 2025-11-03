@@ -10,10 +10,11 @@ function renderStatusCell(status) {
     case 'ALPA':
       return <span title="Alpa" className="text-red-500">❌</span>;
     case 'LIBUR':
-      // === PERUBAHAN TAMPILAN ===
-      return <span title="Libur" className="font-bold text-gray-400">L</span>; 
+      return <span title="Libur" className="font-bold text-gray-400">L</span>;
+    case 'EMPTY': // <-- TAMBAHKAN INI
+      return <span className="text-gray-200">-</span>; // Tampilkan strip abu-abu
     default:
-      return <span className="text-gray-300">?</span>;
+      return <span className="text-gray-200">?</span>; // Ubah default jadi abu-abu
   }
 }
 

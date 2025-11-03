@@ -4,46 +4,51 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import AdminDashboard from './AdminDashboard';
 import PencatatDashboard from './PencatatDashboard';
 
-export const revalidate = 0;
+export const revalidate = 0; // Memaksa halaman ini untuk selalu dinamis
 const prisma = new PrismaClient();
 
-// === (Fungsi Helper Zona Waktu - Tidak Berubah) ===
+// === FUNGSI HELPER ZONA WAKTU (DIPERBAIKI) ===
 function getWIBToday() {
-  return new Date(); // Jauh lebih sederhana dan sekarang sudah akurat
+  return new Date(); // TZ=Asia/Jakarta di Vercel
 }
+
 function getWIBTodayRange(now) {
-  const startOfDayWIB = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-  const endOfDayWIB = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0);
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  
+  const isoStringStart = `${year}-${month}-${day}T00:00:00.000+07:00`;
+  const startOfDayWIB = new Date(isoStringStart);
+  
+  const tomorrow = new Date(startOfDayWIB.getTime() + (24 * 60 * 60 * 1000));
+  const yearTmr = tomorrow.getFullYear();
+  const monthTmr = String(tomorrow.getMonth() + 1).padStart(2, '0');
+  const dayTmr = String(tomorrow.getDate()).padStart(2, '0');
+  
+  const isoStringEnd = `${yearTmr}-${monthTmr}-${dayTmr}T00:00:00.000+07:00`;
+  const endOfDayWIB = new Date(isoStringEnd); 
+
   return { startOfDayWIB, endOfDayWIB };
 }
 
-// === FUNGSI INTI PENGAMBIL DATA (DIPERBARUI UNTUK LIBUR) ===
+// === FUNGSI INTI PENGAMBIL DATA (DIPERBAIKI) ===
 async function getDashboardData(penyimakId = null) {
   const now = getWIBToday();
-  const dayOfWeek = now.getDay(); // 0=Minggu, ..., 4=Kamis, 5=Jumat
-  const todayDateOnly = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())); // Tanggal UTC 00:00
+  const dayOfWeek = now.getDay();
+  // Tanggal UTC 00:00 untuk perbandingan DB
+  const todayDateOnly = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
 
-  // 1. Cek Hari Libur & Ambil Keterangan
+  // 1. Cek Libur & Keterangan
   let isHoliday = false;
   let keteranganLibur = '';
-  if (dayOfWeek === 4) {
-    isHoliday = true;
-    keteranganLibur = 'Libur Rutin (Malam Jumat)';
-  } else if (dayOfWeek === 5) {
-    isHoliday = true;
-    keteranganLibur = 'Libur Rutin (Malam Sabtu)';
-  } else {
-    // Cek libur manual
-    const manualHoliday = await prisma.hariLibur.findUnique({
-      where: { tanggal: todayDateOnly },
-    });
-    if (manualHoliday) {
-      isHoliday = true;
-      keteranganLibur = manualHoliday.keterangan || 'Libur Manual';
-    }
+  if (dayOfWeek === 4) { isHoliday = true; keteranganLibur = 'Libur Rutin (Malam Jumat)'; }
+  else if (dayOfWeek === 5) { isHoliday = true; keteranganLibur = 'Libur Rutin (Malam Sabtu)'; }
+  else {
+    const manualHoliday = await prisma.hariLibur.findUnique({ where: { tanggal: todayDateOnly } });
+    if (manualHoliday) { isHoliday = true; keteranganLibur = manualHoliday.keterangan || 'Libur Manual'; }
   }
 
-  // 2. Tentukan Rentang Waktu Hari Ini
+  // 2. Tentukan Rentang Waktu (Sekarang sudah akurat)
   const { startOfDayWIB, endOfDayWIB } = getWIBTodayRange(now);
 
   // 3. Tentukan Filter Santri
@@ -52,19 +57,17 @@ async function getDashboardData(penyimakId = null) {
     santriWhereClause.penyimakId = penyimakId;
   }
 
-  // 4. Ambil Data Santri (Semua jika libur & Pencatat, terfilter jika tidak)
-  // Ambil semua santri jika libur dan ini dashboard PENCATAT
+  // 4. Ambil Data Santri
   const shouldFetchAllAssigned = isHoliday && !!penyimakId; 
   const santriList = await prisma.santri.findMany({
     where: santriWhereClause,
     orderBy: { nama: 'asc' },
   });
 
-  // 5. Ambil Absensi Hari Ini (jika bukan libur ATAU jika libur tapi kita butuh yg hadir)
+  // 5. Ambil Absensi Hari Ini
   let setoranWajibToday = [];
   let izinToday = [];
-  // Hanya ambil data ini jika kita perlu menghitung Hadir/Izin/Alpa
-  // Jika libur & dashboard Pencatat, kita tidak perlu ini, hanya daftar nama
+  
   if (!shouldFetchAllAssigned) { 
       [setoranWajibToday, izinToday] = await Promise.all([
         prisma.setoran.findMany({
@@ -85,16 +88,15 @@ async function getDashboardData(penyimakId = null) {
       ]);
   }
 
-  // 6. Proses dan Kelompokkan (Hanya jika perlu)
+  // 6. Proses dan Kelompokkan
   const setoranWajibIds = new Set(setoranWajibToday.map(s => s.santriId));
   const izinIds = new Set(izinToday.map(i => i.santriId));
 
   const hadirList = [];
   const izinList = [];
   const alpaList = [];
-  const allAssignedList = santriList; // Untuk Pencatat saat libur
+  const allAssignedList = santriList; 
 
-  // Jika hari libur & ini dashboard Pencatat, kita tidak perlu kelompokkan
   if (!shouldFetchAllAssigned) {
       for (const santri of santriList) {
         if (setoranWajibIds.has(santri.id)) {
@@ -102,7 +104,6 @@ async function getDashboardData(penyimakId = null) {
         } else if (izinIds.has(santri.id)) {
           izinList.push(santri);
         } else {
-          // Jika hari libur, jangan masukkan ke Alpa
           if (!isHoliday) { 
              alpaList.push(santri);
           }
@@ -111,29 +112,23 @@ async function getDashboardData(penyimakId = null) {
   }
 
   return {
-    isHoliday,
-    keteranganLibur,
-    date: now,
-    // Jika libur & pencatat, alpaList kosong, tapi allAssignedList berisi semua
+    isHoliday, keteranganLibur, date: now,
     alpaList: shouldFetchAllAssigned ? [] : alpaList, 
     allAssignedList: shouldFetchAllAssigned ? allAssignedList : [], 
-    // Data lain tetap dihitung (misal untuk Admin)
-    hadirList, 
-    izinList,
+    hadirList, izinList,
   };
 }
 
-// === KOMPONEN UTAMA (SERVER COMPONENT) ===
+// === KOMPONEN UTAMA (SERVER COMPONENT) - (Tidak Berubah) ===
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
   const userRole = session.user.role;
 
-  let data = {}; // Inisialisasi objek data
-  let kitabList = []; // Inisialisasi kitabList
+  let data = {}; 
+  let kitabList = []; 
   
   if (userRole === 'ADMIN' || userRole === 'STAF') {
     Object.assign(data, await getDashboardData(null));
-  
   } else if (userRole === 'PENCATAT') {
     const penyimak = await prisma.penyimak.findUnique({ where: { userId: session.user.id } });
     if (penyimak) {
@@ -143,10 +138,9 @@ export default async function DashboardPage() {
       return <p>Error: Akun Anda belum terhubung ke data Penyimak.</p>;
     }
   } else {
-      return <p>Peran tidak dikenal.</p> // Fallback jika peran aneh
+      return <p>Peran tidak dikenal.</p>;
   }
   
-  // Format tanggal
   const formattedDate = data.date ? data.date.toLocaleDateString('id-ID', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta',
   }) : 'Tanggal tidak tersedia';
@@ -168,7 +162,6 @@ export default async function DashboardPage() {
   if (userRole === 'PENCATAT') {
     return (
       <PencatatDashboard 
-        // Kirim 'allAssignedList' jika libur, 'alpaList' jika tidak
         santriToDisplay={data.isHoliday ? data.allAssignedList : data.alpaList} 
         isHoliday={data.isHoliday || false}
         keteranganLibur={data.keteranganLibur || ''}

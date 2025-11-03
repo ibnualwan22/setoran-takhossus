@@ -51,8 +51,8 @@ export default function DashboardLayout({ children }) {
         />
 
         {/* Konten Halaman */}
-        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-6 pb-20 md:pb-6">
-          {children} 
+        <main className="flex-1 overflow-y-auto bg-gray-100 p-6 pb-20 md:pb-6 overflow-x-auto">
+            {children} 
         </main>
       </div>
 

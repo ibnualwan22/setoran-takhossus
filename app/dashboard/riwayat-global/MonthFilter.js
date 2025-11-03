@@ -50,8 +50,8 @@ export default function MonthFilter() {
   const years = Array.from({ length: 4 }, (_, i) => currentYear - 3 + i).reverse();
 
   return (
-    <form className="mb-6 p-4 border rounded-lg bg-gray-50 flex items-center gap-4">
-      <div className="flex-grow">
+      <form className="mb-6 p-4 border rounded-lg bg-gray-50 flex flex-col md:flex-row md:items-center gap-4">
+        <div className="flex-grow w-full">
         <label htmlFor="month" className="block text-sm font-medium text-gray-700">
           Pilih Bulan
         </label>
@@ -66,7 +66,7 @@ export default function MonthFilter() {
           ))}
         </select>
       </div>
-      <div className="flex-grow">
+      <div className="flex-grow w-full">
         <label htmlFor="year" className="block text-sm font-medium text-gray-700">
           Pilih Tahun
         </label>
@@ -81,11 +81,11 @@ export default function MonthFilter() {
           ))}
         </select>
       </div>
-      <div className="mt-6">
+      <div className="w-full md:w-auto md:mt-6">
         <button
           type="submit"
           onClick={handleFilterChange}
-          className="px-4 py-2 font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
+        className="w-full px-4 py-2 font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
         >
           Tampilkan
         </button>
