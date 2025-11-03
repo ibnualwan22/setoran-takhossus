@@ -70,6 +70,7 @@ export default function Sidebar({ isMobile = false, toggleMobileMenu }) {
           <NavLink href="/dashboard/manage-santri" icon={FiUsers} onClick={handleLinkClick}>Santri</NavLink>
           <NavLink href="/dashboard/manage-kitab" icon={FiBookOpen} onClick={handleLinkClick}>Kitab Mukhotim</NavLink>
           <NavLink href="/dashboard/manage-holidays" icon={FiCalendar} onClick={handleLinkClick}>Hari Libur</NavLink>
+          <NavLink href="/dashboard/profile" icon={FiCalendar} onClick={handleLinkClick}>Profil</NavLink>
         </ul>
       </nav>
     </aside>
