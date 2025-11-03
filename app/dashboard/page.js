@@ -4,7 +4,7 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import AdminDashboard from './AdminDashboard';
 import PencatatDashboard from './PencatatDashboard';
 
-export const revalidate = 0; // Memaksa halaman ini untuk selalu dinamis
+export const revalidate = 0; 
 const prisma = new PrismaClient();
 
 // === FUNGSI HELPER ZONA WAKTU (DIPERBAIKI) ===
@@ -13,21 +13,19 @@ function getWIBToday() {
 }
 
 function getWIBTodayRange(now) {
+  // 'now' adalah Date object (WIB)
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, '0');
   const day = String(now.getDate()).padStart(2, '0');
-  
-  const isoStringStart = `${year}-${month}-${day}T00:00:00.000+07:00`;
+  const dateString = `${year}-${month}-${day}`; 
+
+  // === Menggunakan Logika dari wibUtils.js (Terbukti Bekerja) ===
+  const isoStringStart = `${dateString}T00:00:00.000+07:00`;
   const startOfDayWIB = new Date(isoStringStart);
   
-  const tomorrow = new Date(startOfDayWIB.getTime() + (24 * 60 * 60 * 1000));
-  const yearTmr = tomorrow.getFullYear();
-  const monthTmr = String(tomorrow.getMonth() + 1).padStart(2, '0');
-  const dayTmr = String(tomorrow.getDate()).padStart(2, '0');
+  const isoStringEnd = `${dateString}T23:59:59.999+07:00`;
+  const endOfDayWIB = new Date(isoStringEnd);
   
-  const isoStringEnd = `${yearTmr}-${monthTmr}-${dayTmr}T00:00:00.000+07:00`;
-  const endOfDayWIB = new Date(isoStringEnd); 
-
   return { startOfDayWIB, endOfDayWIB };
 }
 
@@ -35,12 +33,12 @@ function getWIBTodayRange(now) {
 async function getDashboardData(penyimakId = null) {
   const now = getWIBToday();
   const dayOfWeek = now.getDay();
-  // Tanggal UTC 00:00 untuk perbandingan DB
   const todayDateOnly = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
 
-  // 1. Cek Libur & Keterangan
+  // 1. Cek Libur & Keterangan (Tidak berubah)
   let isHoliday = false;
   let keteranganLibur = '';
+  // ... (logika cek libur kamis/jumat/manual) ...
   if (dayOfWeek === 4) { isHoliday = true; keteranganLibur = 'Libur Rutin (Malam Jumat)'; }
   else if (dayOfWeek === 5) { isHoliday = true; keteranganLibur = 'Libur Rutin (Malam Sabtu)'; }
   else {
@@ -48,16 +46,17 @@ async function getDashboardData(penyimakId = null) {
     if (manualHoliday) { isHoliday = true; keteranganLibur = manualHoliday.keterangan || 'Libur Manual'; }
   }
 
+
   // 2. Tentukan Rentang Waktu (Sekarang sudah akurat)
   const { startOfDayWIB, endOfDayWIB } = getWIBTodayRange(now);
 
-  // 3. Tentukan Filter Santri
+  // 3. Tentukan Filter Santri (Tidak berubah)
   let santriWhereClause = { is_active: true };
   if (penyimakId) {
     santriWhereClause.penyimakId = penyimakId;
   }
 
-  // 4. Ambil Data Santri
+  // 4. Ambil Data Santri (Tidak berubah)
   const shouldFetchAllAssigned = isHoliday && !!penyimakId; 
   const santriList = await prisma.santri.findMany({
     where: santriWhereClause,
@@ -73,14 +72,16 @@ async function getDashboardData(penyimakId = null) {
         prisma.setoran.findMany({
           where: {
             kategori: 'WAJIB',
-            createdAt: { gte: startOfDayWIB, lt: endOfDayWIB },
+            // === PERBAIKI QUERY: gte dan lte (<=) ===
+            createdAt: { gte: startOfDayWIB, lte: endOfDayWIB }, 
             santri: santriWhereClause, 
           },
           select: { santriId: true },
         }),
         prisma.izin.findMany({
           where: {
-            createdAt: { gte: startOfDayWIB, lt: endOfDayWIB },
+            // === PERBAIKI QUERY: gte dan lte (<=) ===
+            createdAt: { gte: startOfDayWIB, lte: endOfDayWIB },
             santri: santriWhereClause,
           },
           select: { santriId: true },
@@ -88,15 +89,14 @@ async function getDashboardData(penyimakId = null) {
       ]);
   }
 
-  // 6. Proses dan Kelompokkan
+  // 6. Proses dan Kelompokkan (Tidak berubah)
+  // ... (logika pengelompokan hadirList, izinList, alpaList) ...
   const setoranWajibIds = new Set(setoranWajibToday.map(s => s.santriId));
   const izinIds = new Set(izinToday.map(i => i.santriId));
-
   const hadirList = [];
   const izinList = [];
   const alpaList = [];
   const allAssignedList = santriList; 
-
   if (!shouldFetchAllAssigned) {
       for (const santri of santriList) {
         if (setoranWajibIds.has(santri.id)) {
@@ -122,11 +122,10 @@ async function getDashboardData(penyimakId = null) {
 // === KOMPONEN UTAMA (SERVER COMPONENT) - (Tidak Berubah) ===
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
+  // ... (logika render berdasarkan peran tidak berubah) ...
   const userRole = session.user.role;
-
   let data = {}; 
   let kitabList = []; 
-  
   if (userRole === 'ADMIN' || userRole === 'STAF') {
     Object.assign(data, await getDashboardData(null));
   } else if (userRole === 'PENCATAT') {
@@ -140,12 +139,9 @@ export default async function DashboardPage() {
   } else {
       return <p>Peran tidak dikenal.</p>;
   }
-  
   const formattedDate = data.date ? data.date.toLocaleDateString('id-ID', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta',
   }) : 'Tanggal tidak tersedia';
-  
-  // Render berdasarkan peran
   if (userRole === 'ADMIN' || userRole === 'STAF') {
     return (
       <AdminDashboard 
@@ -158,7 +154,6 @@ export default async function DashboardPage() {
       />
     );
   }
-
   if (userRole === 'PENCATAT') {
     return (
       <PencatatDashboard 
@@ -170,6 +165,5 @@ export default async function DashboardPage() {
       />
     );
   }
-
   return null; 
 }

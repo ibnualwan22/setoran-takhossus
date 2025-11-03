@@ -1,51 +1,44 @@
 import { PrismaClient } from '@prisma/client';
 import AlpaReportButton from './AlpaReportButton';
 
+export const revalidate = 0; // Tetap paksa dinamis
 const prisma = new PrismaClient();
 
 // === FUNGSI HELPER ZONA WAKTU (DIPERBAIKI) ===
 function getWIBToday() {
-  // TZ=Asia/Jakarta di Vercel membuat new Date() sudah benar (WIB)
-  return new Date(); 
+  return new Date(); // TZ=Asia/Jakarta di Vercel
 }
 
 function getWIBTodayRange(now) {
-  // 'now' adalah objek Date WIB
+  // 'now' adalah Date object (WIB)
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, '0');
   const day = String(now.getDate()).padStart(2, '0');
-  
-  // Buat string ISO eksplisit untuk jam 00:00:00 WIB
-  const isoStringStart = `${year}-${month}-${day}T00:00:00.000+07:00`;
+  const dateString = `${year}-${month}-${day}`; // cth: "2025-11-03"
+
+  // === Menggunakan Logika dari wibUtils.js (Terbukti Bekerja) ===
+  // Jam 00:00:00 WIB
+  const isoStringStart = `${dateString}T00:00:00.000+07:00`;
   const startOfDayWIB = new Date(isoStringStart);
   
-  // Buat timestamp untuk hari berikutnya
-  // Tambahkan 24 jam dalam milidetik
-  const tomorrow = new Date(startOfDayWIB.getTime() + (24 * 60 * 60 * 1000));
+  // Jam 23:59:59 WIB
+  const isoStringEnd = `${dateString}T23:59:59.999+07:00`;
+  const endOfDayWIB = new Date(isoStringEnd);
   
-  const yearTmr = tomorrow.getFullYear();
-  const monthTmr = String(tomorrow.getMonth() + 1).padStart(2, '0');
-  const dayTmr = String(tomorrow.getDate()).padStart(2, '0');
-  
-  // Ini adalah jam 00:00:00 WIB besok
-  const isoStringEnd = `${yearTmr}-${monthTmr}-${dayTmr}T00:00:00.000+07:00`;
-  const endOfDayWIB = new Date(isoStringEnd); 
-
+  // Kita ubah query menjadi gte (>=) dan lte (<=)
   return { startOfDayWIB, endOfDayWIB };
 }
 
-// === FUNGSI INTI PENGAMBIL DATA (DIPERBAIKI) ===
+// === FUNGSI INTI PENGAMBIL DATA (DIPERBARUI) ===
 async function getDailyRecapData() {
-  const now = getWIBToday(); // 'now' sudah WIB
+  const now = getWIBToday();
   const dayOfWeek = now.getDay();
-  
-  // Tanggal UTC 00:00 untuk perbandingan dengan DB (HariLibur)
-  // Ini mengambil TANGGAL dari 'now' (WIB) dan membuatnya jadi UTC 00:00
   const todayDateOnly = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
 
-  // 1. Cek Libur & Keterangan
+  // 1. Cek Libur & Keterangan (Tidak berubah)
   let isHoliday = false;
   let keteranganLibur = '';
+  // ... (logika cek libur kamis/jumat/manual) ...
   if (dayOfWeek === 4) { isHoliday = true; keteranganLibur = 'Libur Rutin (Malam Jumat)'; }
   else if (dayOfWeek === 5) { isHoliday = true; keteranganLibur = 'Libur Rutin (Malam Sabtu)'; }
   else {
@@ -53,7 +46,8 @@ async function getDailyRecapData() {
     if (manualHoliday) { isHoliday = true; keteranganLibur = manualHoliday.keterangan || 'Libur Manual'; }
   }
 
-  // 2. Tentukan Rentang Waktu (Sekarang sudah akurat 00:00 WIB)
+
+  // 2. Tentukan Rentang Waktu (Sekarang sudah akurat 00:00 - 23:59 WIB)
   const { startOfDayWIB, endOfDayWIB } = getWIBTodayRange(now);
 
   // 3. Ambil Data (Santri Aktif & Setoran Wajib)
@@ -64,7 +58,8 @@ async function getDailyRecapData() {
         include: { penyimak: true } 
     }),
     prisma.setoran.findMany({
-      where: { kategori: 'WAJIB', createdAt: { gte: startOfDayWIB, lt: endOfDayWIB } },
+      // === PERBAIKI QUERY: gte dan lte (<=) ===
+      where: { kategori: 'WAJIB', createdAt: { gte: startOfDayWIB, lte: endOfDayWIB } }, 
       select: { santriId: true },
     }),
   ]);
@@ -73,18 +68,19 @@ async function getDailyRecapData() {
   let izinToday = [];
   if (!isHoliday) {
       izinToday = await prisma.izin.findMany({
-        where: { createdAt: { gte: startOfDayWIB, lt: endOfDayWIB } },
+        // === PERBAIKI QUERY: gte dan lte (<=) ===
+        where: { createdAt: { gte: startOfDayWIB, lte: endOfDayWIB } },
         select: { santriId: true },
       });
   }
 
   // 5. Proses dan Kelompokkan (Tidak berubah)
+  // ... (logika pengelompokan hadirList, izinList, alpaList) ...
   const setoranWajibIds = new Set(setoranWajibToday.map(s => s.santriId));
   const izinIds = new Set(izinToday.map(i => i.santriId));
   const hadirList = [];
   const izinList = [];
   const alpaList = []; 
-
   for (const santri of allActiveSantri) {
     if (setoranWajibIds.has(santri.id)) {
       hadirList.push(santri);
@@ -96,6 +92,7 @@ async function getDailyRecapData() {
   }
 
   // 6. Kelompokkan Alpa (Tidak berubah)
+  // ... (logika alpaGroupedByPenyimak) ...
   const alpaGroupedByPenyimak = alpaList.reduce((acc, santri) => {
     const penyimakName = santri.penyimak?.nama || 'Belum Ditentukan';
     if (!acc[penyimakName]) {
@@ -113,7 +110,6 @@ async function getDailyRecapData() {
 }
 
 // === KOMPONEN UTAMA (SERVER COMPONENT) - DIPERBARUI ===
-export const revalidate = 0; // Memaksa halaman ini untuk selalu dinamis
 
 export default async function RekapHarianPage() {
   const data = await getDailyRecapData();
@@ -134,15 +130,11 @@ export default async function RekapHarianPage() {
            <p className="text-blue-700 mt-1">Hanya santri yang tetap setoran wajib yang ditampilkan di bawah.</p>
         </div>
       )}
-
-      {/* Tombol Laporan WA */}
       {!data.isHoliday && data.alpaList.length > 0 && (
           <div className="mb-6 p-4 border rounded-lg bg-yellow-50">
              <AlpaReportButton groupedAlpa={data.alpaGroupedByPenyimak} />
           </div>
       )}
-
-      {/* Grid Kolom */}
       <div className={`grid grid-cols-1 ${data.isHoliday ? 'md:grid-cols-1' : 'md:grid-cols-3'} gap-6`}>
          <SantriListCard
           title={data.isHoliday ? "Santri yang Tetap Setor (Wajib)" : "Sudah Setor (Wajib)"}
