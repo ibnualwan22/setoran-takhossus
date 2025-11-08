@@ -58,6 +58,7 @@ model Santri {
   // Relasi one-to-many: Satu santri punya banyak riwayat setoran & izin
   setoran Setoran[]
   izin    Izin[]
+  izinJangkaPanjang IzinJangkaPanjang[]
 }
 
 // 4. MODEL UNTUK KITAB-KITAB (KHUSUS MUKHOTIM)
@@ -142,4 +143,22 @@ enum JenisIzin {
   SAKIT
   PULANG
   LAINNYA
+}
+
+model IzinJangkaPanjang {
+  id        Int      @id @default(autoincrement())
+  
+  // Relasi: Izin ini milik siapa?
+  santriId  Int
+  santri    Santri   @relation(fields: [santriId], references: [id], onDelete: Cascade)
+  
+  // Tanggal Mulai dan Selesai (INKLUSIF)
+  tanggalMulai   DateTime @db.Date // Hanya tanggal
+  tanggalSelesai DateTime @db.Date // Hanya tanggal
+
+  jenisIzin  JenisIzin // Pakai Enum yang sama dengan Izin harian
+  keterangan String
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
