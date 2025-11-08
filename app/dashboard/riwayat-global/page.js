@@ -24,19 +24,29 @@ function getMonthDetails(month, year) {
 // === FUNGSI INTI PENGAMBIL DATA (BACKEND) - DIPERBARUI ===
 async function getGlobalRecapData(month, year) {
   const { startDate, endDate, daysArray, daysInMonth, y, m } = getMonthDetails(month, year);
+
+  // Info Hari Ini (Tidak berubah)
   const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
-  const todayDate = now.getDate(); // Cth: 3
-  const currentMonth = now.getMonth() + 1; // Cth: 11 (November)
-  const currentYear = now.getFullYear(); // Cth: 2025
-  
-  // Cek apakah kita sedang melihat bulan & tahun saat ini
+  const todayDate = now.getDate();
+  const currentMonth = now.getMonth() + 1;
+  const currentYear = now.getFullYear();
   const isCurrentMonthView = (parseInt(month) === currentMonth && parseInt(year) === currentYear);
-  // 1. Ambil data (Tidak Berubah)
-  const [allActiveSantri, setoranWajib, izin, hariLiburManual] = await Promise.all([
+
+  // 1. Ambil semua data relevan
+  const [allActiveSantri, setoranWajib, izinHarian, hariLiburManual, izinPanjang] = await Promise.all([
     prisma.santri.findMany({ where: { is_active: true }, orderBy: { nama: 'asc' } }),
     prisma.setoran.findMany({ where: { kategori: 'WAJIB', createdAt: { gte: startDate, lt: endDate } }, select: { santriId: true, createdAt: true } }),
     prisma.izin.findMany({ where: { createdAt: { gte: startDate, lt: endDate } }, select: { santriId: true, createdAt: true } }),
-    prisma.hariLibur.findMany({ where: { tanggal: { gte: startDate, lt: endDate } }, select: { tanggal: true } })
+    prisma.hariLibur.findMany({ where: { tanggal: { gte: startDate, lt: endDate } }, select: { tanggal: true } }),
+    // === TAMBAHKAN INI ===
+    // Ambil semua izin panjang yang bersinggungan dengan bulan ini
+    prisma.izinJangkaPanjang.findMany({
+        where: {
+            tanggalMulai: { lt: endDate }, // Mulai sebelum akhir bulan
+            tanggalSelesai: { gte: startDate }, // Selesai setelah awal bulan
+        },
+        select: { santriId: true, tanggalMulai: true, tanggalSelesai: true }
+    })
   ]);
 
   // 2. Proses Maps (Tidak Berubah)
@@ -47,7 +57,7 @@ async function getGlobalRecapData(month, year) {
     setoranWajibMap.get(setoran.santriId).add(tgl);
   }
   const izinMap = new Map();
-  for (const i of izin) {
+  for (const i of izinHarian) {
     const tgl = new Date(new Date(i.createdAt).toLocaleString('en-US', { timeZone: 'Asia/Jakarta' })).getDate();
     if (!izinMap.has(i.santriId)) izinMap.set(i.santriId, new Set());
     izinMap.get(i.santriId).add(tgl);
@@ -55,37 +65,59 @@ async function getGlobalRecapData(month, year) {
   const liburSet = new Set(hariLiburManual.map(l => l.tanggal.getUTCDate()));
 
   // 3. Bangun data rekap (LOGIKA DIPERBARUI)
+  const izinPanjangMap = new Map();
+  for (const izin of izinPanjang) {
+      if (!izinPanjangMap.has(izin.santriId)) {
+          izinPanjangMap.set(izin.santriId, []);
+      }
+      // Simpan rentang tanggalnya (sebagai timestamp UTC)
+      izinPanjangMap.get(izin.santriId).push({
+          start: izin.tanggalMulai.getTime(), // Waktu (UTC)
+          end: izin.tanggalSelesai.getTime(), // Waktu (UTC)
+      });
+  }
+
+  // 3. Bangun data rekap (LOGIKA DIPERBARUI)
   const rekapData = [];
   for (const santri of allActiveSantri) {
     const santriRow = { id: santri.id, nama: santri.nama, dates: {}, totalHadir: 0, totalIzin: 0, totalAlpa: 0 };
     const santriSetoran = setoranWajibMap.get(santri.id) || new Set();
     const santriIzin = izinMap.get(santri.id) || new Set();
+    const santriIzinPanjang = izinPanjangMap.get(santri.id) || []; // Ambil array rentang
 
     for (const day of daysArray) {
-      // === LOGIKA BARU DI SINI ===
-      // Cek #1: Apakah ini tanggal di masa depan (hanya jika di bulan ini)
-      if (isCurrentMonthView && day > todayDate) {
-        santriRow.dates[day] = 'EMPTY'; // Status baru: Kosong
-      } else {
-        // Logika lama (pengecekan libur, hadir, izin, alpa)
-        const currentDateUTC = new Date(Date.UTC(y, m - 1, day));
-        const dayOfWeek = currentDateUTC.getUTCDay();
-        const isHoliday = (dayOfWeek === 4 || dayOfWeek === 5 || liburSet.has(day));
+      const currentDateUTC = new Date(Date.UTC(y, m - 1, day)); // Tanggal 00:00 UTC
+      const currentTimestamp = currentDateUTC.getTime(); // Timestamp
+      const dayOfWeek = currentDateUTC.getUTCDay();
+      const isHoliday = (dayOfWeek === 4 || dayOfWeek === 5 || liburSet.has(day));
 
-        if (santriSetoran.has(day)) {
-          santriRow.dates[day] = 'HADIR';
-          santriRow.totalHadir++;
-        } else if (isHoliday) {
-          santriRow.dates[day] = 'LIBUR';
-        } else if (santriIzin.has(day)) {
+      // Cek apakah hari ini ada di dalam salah satu rentang izin panjang
+      const isIzinPanjang = santriIzinPanjang.some(
+          range => currentTimestamp >= range.start && currentTimestamp <= range.end
+      );
+
+      // === LOGIKA BARU ===
+      if (isCurrentMonthView && day > todayDate) {
+        santriRow.dates[day] = 'EMPTY';
+      } else if (santriSetoran.has(day)) {
+        santriRow.dates[day] = 'HADIR';
+        santriRow.totalHadir++;
+      } else if (isHoliday) {
+        santriRow.dates[day] = 'LIBUR';
+      } 
+      // === CEK IZIN PANJANG ===
+      else if (isIzinPanjang) {
           santriRow.dates[day] = 'IZIN';
           santriRow.totalIzin++;
-        } else {
-          santriRow.dates[day] = 'ALPA';
-          santriRow.totalAlpa++; // Alpa hanya dihitung jika BUKAN masa depan
-        }
       }
-      // =========================
+      // ========================
+      else if (santriIzin.has(day)) {
+        santriRow.dates[day] = 'IZIN';
+        santriRow.totalIzin++;
+      } else {
+        santriRow.dates[day] = 'ALPA';
+        santriRow.totalAlpa++;
+      }
     }
     rekapData.push(santriRow);
   }

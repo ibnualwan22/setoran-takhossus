@@ -7,7 +7,8 @@ import {
     FiHome, 
     FiEdit, 
     FiClipboard, 
-    FiUsers 
+    FiUsers,
+    FiUser
 } from 'react-icons/fi'; 
 
 export default function BottomNav() {
@@ -15,10 +16,10 @@ export default function BottomNav() {
 
   const navItems = [
     { href: '/dashboard/input-setoran', icon: FiEdit, label: 'Input' },
-    
-    { href: '/dashboard', icon: FiHome, label: 'Home' }, // Tengah
     { href: '/dashboard/rekap-harian', icon: FiClipboard, label: 'Rekap' },
+    { href: '/dashboard', icon: FiHome, label: 'Home' }, // Tengah
     { href: '/dashboard/laporan-penyimak', icon: FiUsers, label: 'Asuhan' },
+    { href: '/dashboard/profile', icon: FiUser, label: 'Profile' },
   ];
 
   return (

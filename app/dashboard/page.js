@@ -47,7 +47,7 @@ async function getDashboardData(penyimakId = null) {
   }
 
 
-  // 2. Tentukan Rentang Waktu (Sekarang sudah akurat)
+  // 2. Tentukan Rentang Waktu (Tidak berubah)
   const { startOfDayWIB, endOfDayWIB } = getWIBTodayRange(now);
 
   // 3. Tentukan Filter Santri (Tidak berubah)
@@ -65,22 +65,32 @@ async function getDashboardData(penyimakId = null) {
 
   // 5. Ambil Absensi Hari Ini
   let setoranWajibToday = [];
-  let izinToday = [];
+  let izinHarianToday = []; // Ganti nama dari izinToday
+  
+  // === TAMBAHKAN INI ===
+  // Ambil Izin Jangka Panjang (selalu dicek, bahkan saat libur)
+  const izinPanjangToday = await prisma.izinJangkaPanjang.findMany({
+      where: {
+          tanggalMulai: { lte: todayDateOnly },
+          tanggalSelesai: { gte: todayDateOnly },
+          santri: santriWhereClause, // Filter berdasarkan asuhan
+      },
+      select: { santriId: true }
+  });
   
   if (!shouldFetchAllAssigned) { 
-      [setoranWajibToday, izinToday] = await Promise.all([
+      [setoranWajibToday, izinHarianToday] = await Promise.all([
         prisma.setoran.findMany({
           where: {
             kategori: 'WAJIB',
-            // === PERBAIKI QUERY: gte dan lte (<=) ===
             createdAt: { gte: startOfDayWIB, lte: endOfDayWIB }, 
             santri: santriWhereClause, 
           },
           select: { santriId: true },
         }),
-        prisma.izin.findMany({
+        // Ambil Izin Harian (HANYA jika TIDAK libur)
+        isHoliday ? Promise.resolve([]) : prisma.izin.findMany({
           where: {
-            // === PERBAIKI QUERY: gte dan lte (<=) ===
             createdAt: { gte: startOfDayWIB, lte: endOfDayWIB },
             santri: santriWhereClause,
           },
@@ -92,21 +102,40 @@ async function getDashboardData(penyimakId = null) {
   // 6. Proses dan Kelompokkan (Tidak berubah)
   // ... (logika pengelompokan hadirList, izinList, alpaList) ...
   const setoranWajibIds = new Set(setoranWajibToday.map(s => s.santriId));
-  const izinIds = new Set(izinToday.map(i => i.santriId));
+  const izinHarianIds = new Set(izinHarianToday.map(i => i.santriId));
+  const izinPanjangIds = new Set(izinPanjangToday.map(i => i.santriId)); // <-- BARU
+
   const hadirList = [];
   const izinList = [];
   const alpaList = [];
   const allAssignedList = santriList; 
-  if (!shouldFetchAllAssigned) {
+
+  // Jika hari libur & ini dashboard Pencatat
+  if (shouldFetchAllAssigned) {
+      for (const santri of santriList) {
+          // Tetap cek apakah dia hadir atau izin panjang
+          if (setoranWajibIds.has(santri.id)) {
+             hadirList.push(santri);
+          } else if (izinPanjangIds.has(santri.id)) {
+             izinList.push(santri);
+          }
+          // 'allAssignedList' sudah berisi semua
+      }
+  } else {
+  // Jika hari biasa
       for (const santri of santriList) {
         if (setoranWajibIds.has(santri.id)) {
           hadirList.push(santri);
-        } else if (izinIds.has(santri.id)) {
+        }
+        // === LOGIKA DIPERBARUI ===
+        else if (izinPanjangIds.has(santri.id)) {
+            izinList.push(santri);
+        } 
+        else if (!isHoliday && izinHarianIds.has(santri.id)) {
           izinList.push(santri);
-        } else {
-          if (!isHoliday) { 
-             alpaList.push(santri);
-          }
+        } 
+        else if (!isHoliday) { 
+           alpaList.push(santri);
         }
       }
   }
