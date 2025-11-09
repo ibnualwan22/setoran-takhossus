@@ -46,11 +46,10 @@ async function getDailyRecapData() {
     if (manualHoliday) { isHoliday = true; keteranganLibur = manualHoliday.keterangan || 'Libur Manual'; }
   }
 
-
-  // 2. Tentukan Rentang Waktu (Sekarang sudah akurat 00:00 - 23:59 WIB)
+  // 2. Tentukan Rentang Waktu (Tidak berubah)
   const { startOfDayWIB, endOfDayWIB } = getWIBTodayRange(now);
 
-  // 3. Ambil Data (Santri Aktif & Setoran Wajib)
+  // 3. Ambil Data
   const [allActiveSantri, setoranWajibToday, izinHarianToday, izinPanjangToday] = await Promise.all([
     prisma.santri.findMany({ 
         where: { is_active: true }, 
@@ -61,14 +60,10 @@ async function getDailyRecapData() {
       where: { kategori: 'WAJIB', createdAt: { gte: startOfDayWIB, lte: endOfDayWIB } }, 
       select: { santriId: true },
     }),
-    // Ambil Izin Harian (HANYA jika TIDAK libur)
     isHoliday ? Promise.resolve([]) : prisma.izin.findMany({
       where: { createdAt: { gte: startOfDayWIB, lte: endOfDayWIB } },
       select: { santriId: true },
     }),
-    // === TAMBAHKAN INI ===
-    // Ambil Izin Jangka Panjang yang aktif HARI INI
-    // (todayDateOnly harus di antara tanggalMulai dan tanggalSelesai)
     prisma.izinJangkaPanjang.findMany({
         where: {
             tanggalMulai: { lte: todayDateOnly },
@@ -77,12 +72,11 @@ async function getDailyRecapData() {
         select: { santriId: true }
     })
   ]);
-
-  // 5. Proses dan Kelompokkan (Tidak berubah)
-  // ... (logika pengelompokan hadirList, izinList, alpaList) ...
+  
+  // 4. Proses dan Kelompokkan
   const setoranWajibIds = new Set(setoranWajibToday.map(s => s.santriId));
   const izinHarianIds = new Set(izinHarianToday.map(i => i.santriId));
-  const izinPanjangIds = new Set(izinPanjangToday.map(i => i.santriId)); // <-- BARU
+  const izinPanjangIds = new Set(izinPanjangToday.map(i => i.santriId)); 
 
   const hadirList = [];
   const izinList = [];
@@ -92,29 +86,33 @@ async function getDailyRecapData() {
     if (setoranWajibIds.has(santri.id)) {
       hadirList.push(santri);
     } 
-    // === LOGIKA DIPERBARUI ===
-    // Cek izin jangka panjang DULU
     else if (izinPanjangIds.has(santri.id)) {
         izinList.push(santri);
     }
-    // Baru cek izin harian
     else if (!isHoliday && izinHarianIds.has(santri.id)) {
       izinList.push(santri);
     } 
-    // Baru cek alpa
     else if (!isHoliday) {
       alpaList.push(santri);
     }
-    // Jika isHoliday dan tidak setor/izin panjang, dia tidak masuk mana-mana
   }
 
-  // 5. Kelompokkan Alpa (Tidak berubah)
-  const alpaGroupedByPenyimak = alpaList.reduce((acc, santri) => { /* ... */ });
+  // 5. === PERBAIKAN DI SINI ===
+  // (Logika ini sebelumnya hilang/disingkat)
+  const alpaGroupedByPenyimak = alpaList.reduce((acc, santri) => {
+    const penyimakName = santri.penyimak?.nama || 'Belum Ditentukan';
+    if (!acc[penyimakName]) {
+      acc[penyimakName] = [];
+    }
+    acc[penyimakName].push(santri.nama);
+    return acc;
+  }, {});
+  // ============================
 
   return { 
       isHoliday, keteranganLibur, date: now, 
       hadirList, izinList, alpaList, 
-      alpaGroupedByPenyimak
+      alpaGroupedByPenyimak // <-- Sekarang `alpaGroupedByPenyimak` berisi object
   };
 }
 
