@@ -7,16 +7,16 @@ const inter = Inter({ subsets: ['latin'] });
 export const metadata = {
   title: 'Setoran Takhossus',
   description: 'Aplikasi Setoran Harian Asrama Takhossus',
-  manifest: '/manifest.json', // Link otomatis ke manifest yang digenerate Next.js
+  // Pastikan baris ini mengarah ke /manifest.json (bukan webmanifest)
+  manifest: '/manifest.json', 
 };
 
-// TAMBAHKAN INI:
 export const viewport = {
-  themeColor: "#4f46e5", // Warna bar notifikasi di HP Android
+  themeColor: "#4f46e5",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  userScalable: false, // Mencegah zoom cubit (opsional, biar rasa native app)
+  userScalable: false,
 };
 
 export default function RootLayout({ children }) {
